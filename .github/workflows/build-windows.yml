@@ -6,6 +6,7 @@ on:
     paths:
       - "app.py"
       - "macrodesk.py"
+      - "scriptdeck.py"
       - "requirements.txt"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
@@ -29,10 +30,13 @@ jobs:
         run: |
           python -m py_compile app.py
           python -m py_compile macrodesk.py
+          python -m py_compile scriptdeck.py
       - name: Build LuauDesk
         run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name LuauDesk app.py
       - name: Build MacroDesk
         run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name MacroDesk --collect-all keyboard --collect-all pyautogui --collect-all pyperclip macrodesk.py
+      - name: Build ScriptDeck
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ScriptDeck scriptdeck.py
       - name: Upload Windows executables
         uses: actions/upload-artifact@v4
         with:
@@ -40,5 +44,6 @@ jobs:
           path: |
             dist/LuauDesk.exe
             dist/MacroDesk.exe
+            dist/ScriptDeck.exe
           if-no-files-found: error
           retention-days: 30
