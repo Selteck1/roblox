@@ -462,10 +462,14 @@ class MacroDesk:
                 except Exception:
                     pass
             self.hotkey_handles.clear()
-            for profile in self.profiles:
+            for index, profile in enumerate(self.profiles):
                 run_key, stop_key = profile["hotkey"], profile["stop_hotkey"]
-                self.hotkey_handles.append(keyboard.add_hotkey(run_key, lambda p=profile: self.start_macro(p), suppress=False, trigger_on_release=False))
-                self.hotkey_handles.append(keyboard.add_hotkey(stop_key, self.stop_macro, suppress=False, trigger_on_release=False))
+                self.hotkey_handles.append(keyboard.add_hotkey(
+                    run_key, lambda i=index: self.event_queue.put(f"__start__:{i}"),
+                    suppress=False, trigger_on_release=False))
+                self.hotkey_handles.append(keyboard.add_hotkey(
+                    stop_key, lambda: self.event_queue.put("__stop__"),
+                    suppress=False, trigger_on_release=False))
             self.hotkeys_registered = True
         except Exception as exc:
             self.hotkeys_registered = False
@@ -540,7 +544,7 @@ class MacroDesk:
             self._event(f"Ошибка макроса: {type(exc).__name__}: {exc}")
         finally:
             self.running.clear()
-            self.root.after(0, lambda: self.status_var.set("Готово"))
+            self.event_queue.put("__status__:Готово")
 
     def _event(self, line):
         self.event_queue.put(line)
@@ -559,7 +563,20 @@ class MacroDesk:
             return
         try:
             while True:
-                self._log(self.event_queue.get_nowait())
+                line = self.event_queue.get_nowait()
+                if line == "__stop__":
+                    self.stop_macro()
+                elif line.startswith("__start__:"):
+                    try:
+                        index = int(line.split(":", 1)[1])
+                        if 0 <= index < len(self.profiles):
+                            self.start_macro(self.profiles[index])
+                    except (ValueError, IndexError):
+                        pass
+                elif line.startswith("__status__:"):
+                    self.status_var.set(line.split(":", 1)[1])
+                else:
+                    self._log(line)
         except queue.Empty:
             pass
         self.root.after(150, self._poll_queue)
@@ -582,7 +599,7 @@ class MacroDesk:
             return
         try:
             data = json.loads(Path(filename).read_text(encoding="utf-8-sig"))
-            imported = data.get("profiles", data if isinstance(data, list) else [])
+            imported = data if isinstance(data, list) else data.get("profiles", [])
             if not isinstance(imported, list) or not imported:
                 raise ValueError("В файле не найден список profiles.")
             checked = []
