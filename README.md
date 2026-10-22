@@ -1,52 +1,40 @@
-# LuauDesk — Roblox Luau Editor for Windows
+# Windows desktop tools: ScriptDeck, MacroDesk, LuauDesk
 
-Desktop app for editing Lua/Luau scripts and syncing them into **your own Roblox Studio experience** through Rojo.
+This repository contains three small Windows desktop applications.
 
-> LuauDesk does not inject code into a running Roblox client. Use Roblox Studio's Play/Test workflow to run your own game scripts.
+## ScriptDeck — dark Lua / Luau workspace
 
-## Run on Windows
+ScriptDeck provides a dark, executor-inspired editor workspace with tabs, syntax coloring, a saved-script library, an output panel, local CLI execution and export for your own Roblox experience.
 
-1. Install Python 3.10+ from https://www.python.org/downloads/windows/ (enable **Add Python to PATH**).
+**Important limitation:** ScriptDeck is a script editor and local runner, not a Roblox-client injector. Its Execute button runs general Lua/Luau through a separately installed CLI on your computer; Roblox APIs such as `game`, `workspace`, and `Players` are not available in that separate process. Exporting scripts into a project and running them in your own experience uses Roblox Studio and Rojo. The app does not inject code into the Roblox process or bypass client protection.
+
+### Run on Windows
+1. Install Python 3.10+ from https://www.python.org/downloads/windows/ and enable **Add Python to PATH**.
 2. Download or clone this repository.
-3. Double-click `run.bat`.
+3. Double-click `run_scriptdeck.bat`.
 
-The app uses Python's standard library and Tkinter. It does not need extra packages to run from source.
+### Build ScriptDeck.exe
+Double-click `build_scriptdeck.bat`. The EXE is created at `dist\ScriptDeck.exe`. Build it on Windows for a Windows executable. The first build requires internet access to install PyInstaller.
 
-## Build an EXE
+### ScriptDeck features
+- Multiple tabs for Lua / Luau source files.
+- Syntax coloring, open/save, and script library stored in `%APPDATA%\ScriptDeck\Scripts`.
+- Local CLI run via `luau.exe` or `lua.exe` on PATH, with a 10-second process timeout.
+- Export as Server Script, LocalScript or ModuleScript into the `src/` folder structure of your own Roblox project.
+- F5 to run locally; Ctrl+N / Ctrl+O / Ctrl+S for new/open/save.
 
-Double-click `build_exe.bat`. It installs PyInstaller and builds `dist\LuauDesk.exe`. Internet access is needed for the first build to install PyInstaller. The EXE should be built on Windows for Windows.
+## MacroDesk — keyboard macro editor
 
-## Connect to Roblox Studio
+MacroDesk manages profiles of normal desktop keyboard actions (paste text, press a key or key combination, wait, open a URL). It supports configurable run/stop hotkeys and JSON profile import/export.
 
-1. Install the Rojo CLI and Roblox Studio plugin: https://rojo.space/docs/v7/getting-started/installation/
-2. With Rokit, the CLI installation commands are `rokit add rojo-rbx/rojo` and `rokit install`.
-3. Install the Studio plugin with `rojo plugin install`.
-4. Open LuauDesk, choose this repository/project folder and click **Запустить Rojo / sync** (or run `rojo serve` here).
-5. In Roblox Studio, open the Rojo plugin and press **Connect**.
-6. Paste your code, choose the target service and click **Экспорт в проект**. Press **Play** in Studio; check **View → Output** for messages/errors.
+Run `run_macrodesk.bat` to install dependencies and start from source. Use `build_macrodesk.bat` to build a Windows EXE. MacroDesk is a general desktop automation tool; use it only where automation is allowed. It does not inject scripts into Roblox or automate mouse clicks.
 
-Rojo maps these folders to Roblox instances:
+## LuauDesk — Roblox Studio project editor
 
-- `src/server/*.server.lua` → `ServerScriptService` Scripts
-- `src/client/*.client.lua` → `StarterPlayerScripts` LocalScripts
-- `src/gui/*.client.lua` → `StarterGui` LocalScripts
-- `src/shared/*.lua` → `ReplicatedStorage` ModuleScripts
-- `src/workspace/*.server.lua` → `Workspace` Scripts
+LuauDesk edits Lua / Luau and exports scripts into your own Roblox Studio project through Rojo. It does not execute arbitrary code in the live Roblox client.
 
-For an existing Rojo project, select its folder. LuauDesk leaves an existing `default.project.json` untouched; verify that it maps the relevant `src/` folders.
+Run `run.bat` to start from source or `build_exe.bat` to build the EXE. Rojo setup: https://rojo.space/docs/v7/getting-started/installation/
 
-## Features
+## CI build
 
-- Dark-themed Luau editor and basic syntax coloring.
-- Open and save `.lua` / `.luau` files.
-- Export to Script, LocalScript, or ModuleScript locations.
-- Create a Rojo project file when starting a new project.
-- Basic paired-bracket check (not a full Luau parser).
-- Start/stop `rojo serve` from the app when Rojo is in PATH.
-
-## Files
-
-- `app.py` — desktop editor
-- `run.bat` — launch from source
-- `build_exe.bat` — build a Windows EXE
-- `default.project.json` and `src/` — sample Rojo project
+GitHub Actions validates all Python files, builds the three Windows executables and uploads them as the `Windows-Apps` artifact. Open the Actions tab, select the latest successful build, and download that artifact ZIP.
