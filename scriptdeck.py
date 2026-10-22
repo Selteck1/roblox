@@ -35,7 +35,9 @@ class ScriptDeck:
         self._build()
         self.new_tab()
         self.refresh_library()
-        self.log("ScriptDeck ready. Local execution runs in a separate Luau/Lua CLI, not in the Roblox game client.")
+        self.log("ScriptDeck готов. Поле редактора доступно для ввода и вставки кода.")
+        self.log("Локальный запуск требует Luau CLI; он не запускает код внутри клиента Roblox.")
+        self.root.after(200, self._focus_active_editor)
         root.bind("<Control-n>", lambda _e: self.new_tab())
         root.bind("<Control-o>", lambda _e: self.open_file())
         root.bind("<Control-s>", lambda _e: self.save_file())
@@ -122,8 +124,10 @@ class ScriptDeck:
         self.counter += 1
         frame = tk.Frame(self.notebook, bg=EDITOR_BG)
         frame.grid_rowconfigure(0, weight=1); frame.grid_columnconfigure(0, weight=1)
-        editor = tk.Text(frame, bg=EDITOR_BG, fg="#e8e8ee", insertbackground="white", selectbackground="#54272c",
-                         font=("Consolas", 11), padx=14, pady=12, undo=True, wrap="none", borderwidth=0, tabs=(36,))
+        editor = tk.Text(frame, state="normal", takefocus=True, bg=EDITOR_BG, fg="#e8e8ee",
+                         insertbackground="white", selectbackground="#54272c",
+                         font=("Consolas", 11), padx=14, pady=12, undo=True,
+                         wrap="none", borderwidth=0, tabs=(36,))
         editor.grid(row=0, column=0, sticky="nsew")
         ys = ttk.Scrollbar(frame, orient="vertical", command=editor.yview); ys.grid(row=0, column=1, sticky="ns")
         xs = ttk.Scrollbar(frame, orient="horizontal", command=editor.xview); xs.grid(row=1, column=0, sticky="ew")
@@ -132,8 +136,39 @@ class ScriptDeck:
         self.tabs[str(frame)] = {"frame": frame, "editor": editor, "path": Path(path) if path else None}
         self.notebook.add(frame, text=(Path(path).name if path else f"Untitled {self.counter}"))
         self.notebook.select(frame); editor.focus_set()
-        editor.bind("<KeyRelease>", lambda _e, w=editor: self._highlight(w))
+        editor.bind("<KeyRelease>", lambda _e, w=editor: self._highlight(w), add="+")
+        editor.bind("<Control-a>", lambda e, w=editor: self._select_all(e, w))
+        editor.bind("<Button-1>", lambda _e, w=editor: w.focus_set(), add="+")
+        self._install_editor_context_menu(editor)
         self._highlight(editor); self._sync_status()
+
+    @staticmethod
+    def _select_all(event, editor):
+        editor.tag_add("sel", "1.0", "end-1c")
+        editor.mark_set("insert", "end-1c")
+        editor.see("insert")
+        return "break"
+
+    def _install_editor_context_menu(self, editor):
+        menu = tk.Menu(editor, tearoff=False, bg=PANEL, fg=FG, activebackground="#35353f", activeforeground=FG)
+        menu.add_command(label="Вырезать", command=lambda: editor.event_generate("<<Cut>>"))
+        menu.add_command(label="Копировать", command=lambda: editor.event_generate("<<Copy>>"))
+        menu.add_command(label="Вставить", command=lambda: editor.event_generate("<<Paste>>"))
+        menu.add_separator()
+        menu.add_command(label="Выделить всё", command=lambda: self._select_all(None, editor))
+        def popup(event):
+            editor.focus_set()
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+        editor.bind("<Button-3>", popup, add="+")
+
+    def _focus_active_editor(self):
+        tab = self._active()
+        if tab:
+            tab["editor"].configure(state="normal")
+            tab["editor"].focus_set()
 
     def _highlight(self, editor):
         code = editor.get("1.0", "end-1c")
@@ -221,11 +256,14 @@ class ScriptDeck:
         if not tab: return
         runner = shutil.which("luau") or shutil.which("luau.exe") or shutil.which("lua") or shutil.which("lua.exe")
         if not runner:
-            message = ("Local Luau/Lua runtime was not found.\n\n"
-                       "Install the Luau CLI and add luau.exe to PATH to run general Lua/Luau code locally.\n"
-                       "Roblox APIs such as game, workspace and Players only exist inside Roblox. "
-                       "This button does not execute code in the Roblox client.")
-            self.log(message); messagebox.showinfo(APP, message, parent=self.root); return
+            message = ("Локальный Luau/Lua CLI не найден. Редактор остаётся доступным — можешь продолжать вводить и сохранять код.\n"
+                       "Для запуска обычного Lua/Luau локально установи Luau CLI и добавь luau.exe в PATH.\n"
+                       "API Roblox (game, workspace, Players) работают внутри Roblox, а не в отдельном CLI. "
+                       "Эта кнопка не запускает код в игровом клиенте.")
+            self.log(message, error=True)
+            self.status.set("CLI не найден · редактор готов к вводу")
+            self.root.after_idle(self._focus_active_editor)
+            return
         try:
             with tempfile.NamedTemporaryFile("w", suffix=".luau", delete=False, encoding="utf-8", newline="\n") as f:
                 f.write(tab["editor"].get("1.0", "end-1c")); temp_path = Path(f.name)
